@@ -1,0 +1,9 @@
+# 测试1层
+one: 'one'
+
+# 测试2层
+db:
+  two: 'db_host'
+  # 测试3层
+  three:
+    four: 'db_two_three_four'

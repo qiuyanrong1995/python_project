@@ -14,10 +14,9 @@ from loguru import logger as _logger
 
 class Config:
     """
-    配置文件类。
+    配置文件类
 
     默认解析`config.yaml`文件，逐个逐层读取参数，并赋值给:class:`Config`
-
     :param yaml_path 需解析yaml格式配置文件的路径
     """
     # 程序基础路基
@@ -52,12 +51,10 @@ class Config:
         :param yaml_path: 配置文件路径，如果为空则使用默认的配置文件路径
         :return: 配置文件对象
         """
-        if yaml_path is None:
-            yaml_path = os.path.join(self.__BASE_PATH, self.__CONFIG_FILE)
-        else:
-            # 如果yaml为多层目录，认为不需要拼接基本路径
-            if os.sep not in yaml_path:
-                yaml_path = os.path.join(self.__BASE_PATH, yaml_path)
+        yaml_path = yaml_path or self.__CONFIG_FILE
+        # 如果yaml为多层目录，认为不需要拼接基本路径
+        if os.sep not in yaml_path:
+            yaml_path = os.path.join(self.__BASE_PATH, yaml_path)
 
         # 处理中文乱码问题
         with open(yaml_path, 'r', encoding='utf-8') as f:
@@ -72,15 +69,16 @@ class Config:
         :param depth: 属性设置的深度，如果深度大于1，并且属性类型为字典则继续迭代设置属性
         :return: 配置文件对象
         """
+        properties = properties or {}
         for name, value in properties.items():
             full_name = prefix + name if prefix == '' else prefix + '_' + name
             if depth is None:
                 depth = self.fields_depth.get(full_name) if full_name in self.fields_depth else sys.maxsize
             # 如果属性为字典并且属性深度大于1
             if isinstance(value, dict) and depth > 1:
-                self.__set_property(value, prefix, depth - 1)
+                self.__set_property(value, full_name, depth - 1)
             else:
-                self.__dict__[full_name] = value
+                setattr(self, full_name, value)
 
         return self
 
@@ -90,9 +88,9 @@ class Config:
         :return: 配置文件对象
         """
         p = argparse.ArgumentParser()
-        p.add_argument('--start_time', help='文件记录查询开始时间', type=str)
-        p.add_argument('--end_time', help='文件记录查询结束时间', type=str)
-        p.add_argument('--log_path', help='日志记录路径', type=str)
+        p.add_argument('--start-time', help='文件记录查询开始时间', type=str)
+        p.add_argument('--end-time', help='文件记录查询结束时间', type=str)
+        p.add_argument('--log-path', help='日志记录路径', type=str)
         p.add_argument('--upload', help='上传文件路径(如果设置,程序执行上传s3逻辑)', type=str)
         args = p.parse_args()
         self.start_time = self.get_timestamp(args.start_time)
@@ -109,7 +107,7 @@ class Config:
         :param mill: 是否返回毫秒时间戳
         :return: 时间戳
         """
-        tp = None
+        tp = 0
         if time_str:
             if len(time_str) == 10:
                 tp = time.mktime(time.strptime(time_str, '%Y-%m-%d'))
@@ -154,3 +152,22 @@ class Config:
                     plugins[parse_type] = plugin_obj
                 if isinstance(plus, dict):
                     Config.__load_plugins(plus, plugin_sources)
+
+
+class StrTimeParseAction(argparse.Action):
+    """
+    字符串解析为时间时间戳类
+    """
+
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        nargs or raise ValueError('nargs not allowed')
+        super().__init__(option_strings, dest, nargs=None, **kwargs)
+
+
+if __name__ == '__main__':
+    conf = Config()
+    for m in [i for i in dir(conf) if not i.startswith('__')]:
+        field = getattr(conf, m)
+        if callable(field):
+            continue
+        print(m, field)
